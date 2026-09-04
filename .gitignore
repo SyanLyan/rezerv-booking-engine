@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+.vscode/
+.env
+src/Rezerv.Api/appsettings.Development.json
+TestResults/
+*.user
+*.suo
