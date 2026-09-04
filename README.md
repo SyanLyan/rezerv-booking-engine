@@ -21,10 +21,11 @@ The API provides a liveness probe at `/health` and a MySQL readiness probe at `/
 
 ## Package APIs
 
-- `GET /api/packages?customerId={customerId}&businessId={businessId}` lists a customer's unexpired packages with remaining credits. The business filter is optional.
-- `POST /api/packages/purchase` creates a customer-owned package. Send `customerId`, `businessId`, `totalCredits`, and `expiresAtUtc` in the request body.
+- `GET /api/packages?businessId={businessId}` lists active, unexpired package offers. The business filter is optional.
+- `POST /api/packages` creates a business-owned package offer.
+- `POST /api/packages/purchase` creates a customer-owned package balance. Send `customerId` and `packageId` in the request body.
 
-`Package` stores the business, customer, total credits, remaining credits, and expiry date, matching the assessment specification.
+`Package` is a business-owned offer with a fixed expiry date. `CustomerPackage` stores the purchased credits for a specific customer.
 
 ## Build and test
 
