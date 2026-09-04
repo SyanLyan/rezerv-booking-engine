@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Rezerv.Api.Contracts.Common;
 
 namespace Rezerv.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class HealthController : ControllerBase
+public sealed class HealthController : ApiControllerBase
 {
     [HttpGet]
-    public IActionResult Get() => Ok(new { status = "healthy" });
+    public ActionResult<ApiResponse<object>> Get() =>
+        OkResponse<object>(new { status = "healthy" });
 }

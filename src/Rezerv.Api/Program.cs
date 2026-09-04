@@ -1,16 +1,38 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Rezerv.Api.Contracts.Common;
+using Rezerv.Application.Services.Bookings;
 using Rezerv.Application.Services.Packages;
+using Rezerv.Application.Services.Timetable;
 using Rezerv.Infrastructure;
 using Rezerv.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState.Values
+            .SelectMany(state => state.Errors)
+            .Select(error => string.IsNullOrWhiteSpace(error.ErrorMessage) ? "The request is invalid." : error.ErrorMessage)
+            .ToArray();
+
+        return new BadRequestObjectResult(ApiResponse<object>.Failed(ApiResponseMessages.ValidationFailed, errors));
+    };
+});
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<IBookingRuleEngine, BookingRuleEngine>();
 builder.Services.AddScoped<IPackageService, PackageService>();
+builder.Services.AddScoped<ITimetableService, TimetableService>();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<RezervDbContext>("mysql", tags: ["ready"]);
 
@@ -22,7 +44,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseExceptionHandler();
+app.UseExceptionHandler(exceptionHandlerApp =>
+{
+    exceptionHandlerApp.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(
+            ApiResponse<object>.Failed(ApiResponseMessages.UnexpectedError, ApiResponseMessages.UnexpectedError));
+    });
+});
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();

@@ -33,26 +33,6 @@ public sealed class PackageService(
 
     public async Task<PackageDto> CreateAsync(CreatePackageCommand command, CancellationToken cancellationToken = default)
     {
-        if (command.BusinessId <= 0)
-        {
-            throw new InvalidOperationException("BusinessId must be greater than zero.");
-        }
-
-        if (string.IsNullOrWhiteSpace(command.Name))
-        {
-            throw new InvalidOperationException("Package name is required.");
-        }
-
-        if (command.Credits <= 0)
-        {
-            throw new InvalidOperationException("Credits must be greater than zero.");
-        }
-
-        if (command.ExpiresAtUtc <= DateTime.UtcNow)
-        {
-            throw new InvalidOperationException("ExpiresAtUtc must be in the future.");
-        }
-
         var business = await businessRepository.GetByIdAsync(command.BusinessId, cancellationToken)
             ?? throw new KeyNotFoundException("Business was not found.");
 
@@ -81,11 +61,6 @@ public sealed class PackageService(
 
     public async Task<PurchasedPackageDto> PurchaseAsync(PurchasePackageCommand command, CancellationToken cancellationToken = default)
     {
-        if (command.CustomerId <= 0 || command.PackageId <= 0)
-        {
-            throw new InvalidOperationException("CustomerId and PackageId must be greater than zero.");
-        }
-
         var customer = await customerRepository.GetByIdAsync(command.CustomerId, cancellationToken)
             ?? throw new KeyNotFoundException("Customer was not found.");
 

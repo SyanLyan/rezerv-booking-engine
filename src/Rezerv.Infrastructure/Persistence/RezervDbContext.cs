@@ -9,7 +9,6 @@ public sealed class RezervDbContext(DbContextOptions<RezervDbContext> options) :
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Package> Packages => Set<Package>();
     public DbSet<CustomerPackage> CustomerPackages => Set<CustomerPackage>();
-    public DbSet<TimetableSchedule> TimetableSchedules => Set<TimetableSchedule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

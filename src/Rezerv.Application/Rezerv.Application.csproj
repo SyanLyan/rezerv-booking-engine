@@ -4,6 +4,10 @@
     <ProjectReference Include="..\Rezerv.Domain\Rezerv.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="RulesEngine" Version="5.0.6" />
+  </ItemGroup>
+
   <PropertyGroup>
      <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

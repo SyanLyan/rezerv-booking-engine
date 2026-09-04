@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Rezerv.Api.Contracts.Common;
 using Rezerv.Api.Contracts.Packages;
 using Rezerv.Application.Commands.Packages;
 using Rezerv.Application.DTOs.Packages;
@@ -8,23 +9,19 @@ namespace Rezerv.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class PackagesController(IPackageService packageService) : ControllerBase
+public sealed class PackagesController(IPackageService packageService) : ApiControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<PackageDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<PackageDto>>> Get(
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<PackageDto>>>> Get(
         [FromQuery] int? businessId,
         CancellationToken cancellationToken)
     {
         var packages = await packageService.ListAsync(businessId, cancellationToken);
-        return Ok(packages);
+        return OkResponse(packages);
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(PackageDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PackageDto>> Create(
+    public async Task<ActionResult<ApiResponse<PackageDto>>> Create(
         CreatePackageRequest request,
         CancellationToken cancellationToken)
     {
@@ -39,23 +36,20 @@ public sealed class PackagesController(IPackageService packageService) : Control
                     request.ExpiresAtUtc),
                 cancellationToken);
 
-            return StatusCode(StatusCodes.Status201Created, package);
+            return CreatedResponse(package);
         }
         catch (KeyNotFoundException exception)
         {
-            return NotFound(new ProblemDetails { Detail = exception.Message });
+            return NotFoundResponse<PackageDto>(exception.Message);
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequest(new ProblemDetails { Detail = exception.Message });
+            return BadRequestResponse<PackageDto>(exception.Message);
         }
     }
 
     [HttpPost("purchase")]
-    [ProducesResponseType(typeof(PurchasedPackageDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PurchasedPackageDto>> Purchase(
+    public async Task<ActionResult<ApiResponse<PurchasedPackageDto>>> Purchase(
         PurchasePackageRequest request,
         CancellationToken cancellationToken)
     {
@@ -67,15 +61,15 @@ public sealed class PackagesController(IPackageService packageService) : Control
                     request.PackageId),
                 cancellationToken);
 
-            return StatusCode(StatusCodes.Status201Created, purchasedPackage);
+            return CreatedResponse(purchasedPackage);
         }
         catch (KeyNotFoundException exception)
         {
-            return NotFound(new ProblemDetails { Detail = exception.Message });
+            return NotFoundResponse<PurchasedPackageDto>(exception.Message);
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequest(new ProblemDetails { Detail = exception.Message });
+            return BadRequestResponse<PurchasedPackageDto>(exception.Message);
         }
     }
 }
