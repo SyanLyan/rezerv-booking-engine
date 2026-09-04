@@ -12,10 +12,9 @@ Minimal Clean Architecture API targeting .NET 8, MySQL, Entity Framework Core, a
 
 ## Run locally
 
-1. Copy `.env.example` to `.env` and replace the passwords.
-2. Run `docker compose up -d`.
-3. Run `dotnet run --project src/Rezerv.Api`.
-4. Open `/swagger` in the Development environment.
+1. Run `docker compose up -d`.
+2. Run `dotnet run --project src/Rezerv.Api`.
+3. Open `/swagger` in the Development environment.
 
 The API provides a liveness probe at `/health` and a MySQL readiness probe at `/health/ready`.
 
