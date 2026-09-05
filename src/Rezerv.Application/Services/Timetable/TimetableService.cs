@@ -7,27 +7,22 @@ namespace Rezerv.Application.Services.Timetable;
 
 public sealed class TimetableService(
     IGenericRepository<TimetableSchedule> timetableScheduleRepository,
-    IGenericRepository<Business> businessRepository) : ITimetableService
+    IGenericRepository<Business> businessRepository,
+    ITimetableScheduleRepository timetableScheduleReadRepository,
+    IApplicationCache cache) : ITimetableService
 {
-    public async Task<IReadOnlyList<TimetableScheduleDto>> ListAsync(
-        int? businessId,
-        DateOnly? date,
-        CancellationToken cancellationToken = default)
-    {
-        var schedules = await timetableScheduleRepository.ListAsync(cancellationToken);
+    private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(1);
 
-        return schedules
-            .Where(schedule =>
-                (!businessId.HasValue || schedule.BusinessId == businessId.Value) &&
-                (!date.HasValue || DateOnly.FromDateTime(schedule.StartTimeUtc) == date.Value))
-            .OrderBy(schedule => schedule.StartTimeUtc)
-            .Select(MapToDto)
-            .ToList();
+    public async Task<IReadOnlyList<TimetableScheduleDto>> ListAsync(int? businessId, DateOnly? date, CancellationToken cancellationToken = default)
+    {
+        return await cache.GetOrCreateAsync(
+            TimetableCacheKeys.List(businessId, date),
+            CacheExpiration,
+            token => timetableScheduleReadRepository.ListAsync(businessId, date, token),
+            cancellationToken);
     }
 
-    public async Task<TimetableScheduleDto> CreateAsync(
-        CreateTimetableScheduleCommand command,
-        CancellationToken cancellationToken = default)
+    public async Task<TimetableScheduleDto> CreateAsync(CreateTimetableScheduleCommand command,CancellationToken cancellationToken = default)
     {
         var business = await businessRepository.GetByIdAsync(command.BusinessId, cancellationToken)
             ?? throw new KeyNotFoundException("Business was not found.");
@@ -46,17 +41,25 @@ public sealed class TimetableService(
 
         await timetableScheduleRepository.AddAsync(schedule, cancellationToken);
         await timetableScheduleRepository.SaveChangesAsync(cancellationToken);
+        await Task.WhenAll(TimetableCacheKeys.AffectedBy(schedule.BusinessId, schedule.StartTimeUtc)
+            .Select(key => cache.RemoveAsync(key, cancellationToken)));
 
-        return MapToDto(schedule);
+        return MapToDto(schedule, business.Name, 0);
     }
 
-    private static TimetableScheduleDto MapToDto(TimetableSchedule schedule) => new(
+    private static TimetableScheduleDto MapToDto(
+        TimetableSchedule schedule,
+        string businessName,
+        int attendanceCount) => new(
         schedule.Id,
         schedule.BusinessId,
+        businessName,
         schedule.ClassName,
         schedule.Instructor,
         schedule.StartTimeUtc,
         schedule.EndTimeUtc,
         schedule.TotalSlots,
-        schedule.AvailableSlots);
+        schedule.AvailableSlots,
+        attendanceCount);
+
 }

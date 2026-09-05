@@ -3,9 +3,7 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Rezerv.Api.Contracts.Common;
-using Rezerv.Application.Services.Bookings;
-using Rezerv.Application.Services.Packages;
-using Rezerv.Application.Services.Timetable;
+using Rezerv.Application;
 using Rezerv.Infrastructure;
 using Rezerv.Infrastructure.Persistence;
 
@@ -29,10 +27,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         return new BadRequestObjectResult(ApiResponse<object>.Failed(ApiResponseMessages.ValidationFailed, errors));
     };
 });
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddSingleton<IBookingRuleEngine, BookingRuleEngine>();
-builder.Services.AddScoped<IPackageService, PackageService>();
-builder.Services.AddScoped<ITimetableService, TimetableService>();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<RezervDbContext>("mysql", tags: ["ready"]);
 

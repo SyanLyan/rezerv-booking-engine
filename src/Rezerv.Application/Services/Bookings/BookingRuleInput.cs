@@ -6,4 +6,5 @@ public sealed record BookingRuleInput(
     bool HasRemainingPackageCredit,
     bool IsPackageExpired,
     bool HasMatchingBusinessPackage,
-    bool HasExistingBooking);
+    bool HasExistingBooking,
+    bool HasOverlappingBooking);

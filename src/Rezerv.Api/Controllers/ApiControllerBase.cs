@@ -14,6 +14,9 @@ public abstract class ApiControllerBase : ControllerBase
     protected ActionResult<ApiResponse<T>> BadRequestResponse<T>(string message) =>
         BadRequest(ApiResponse<T>.Failed(ApiResponseMessages.RequestFailed, message));
 
+    protected ActionResult<ApiResponse<T>> BadRequestResponse<T>(IReadOnlyList<string> errors) =>
+        BadRequest(new ApiResponse<T>(false, ApiResponseMessages.RequestFailed, default, errors));
+
     protected ActionResult<ApiResponse<T>> NotFoundResponse<T>(string message) =>
         NotFound(ApiResponse<T>.Failed(ApiResponseMessages.RequestFailed, message));
 }

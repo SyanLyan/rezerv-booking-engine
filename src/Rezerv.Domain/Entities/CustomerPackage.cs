@@ -15,4 +15,6 @@ public sealed class CustomerPackage : Entity
     public int TotalCredits { get; set; }
 
     public int RemainingCredits { get; set; }
+
+    public ICollection<Booking> Bookings { get; set; } = [];
 }

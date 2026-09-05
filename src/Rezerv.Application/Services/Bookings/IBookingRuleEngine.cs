@@ -6,6 +6,10 @@ public interface IBookingRuleEngine
         BookingRuleInput input,
         CancellationToken cancellationToken = default);
 
+    Task<BookingRuleEvaluation> EvaluateWaitlistAsync(
+        BookingRuleInput input,
+        CancellationToken cancellationToken = default);
+
     Task<BookingCancellationEvaluation> EvaluateCancellationAsync(
         BookingCancellationRuleInput input,
         CancellationToken cancellationToken = default);

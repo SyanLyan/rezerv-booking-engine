@@ -9,26 +9,35 @@ public sealed class PackageService(
     IGenericRepository<Package> packageRepository,
     IGenericRepository<Business> businessRepository,
     IGenericRepository<Customer> customerRepository,
-    IGenericRepository<CustomerPackage> customerPackageRepository) : IPackageService
+    IGenericRepository<CustomerPackage> customerPackageRepository,
+    IApplicationCache cache) : IPackageService
 {
+    private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(1);
+
     public async Task<IReadOnlyList<PackageDto>> ListAsync(int? businessId, CancellationToken cancellationToken = default)
     {
-        var packages = await packageRepository.ListAsync(cancellationToken);
+        return await cache.GetOrCreateAsync(
+            GetCacheKey(businessId),
+            CacheExpiration,
+            async token =>
+            {
+                var packages = await packageRepository.ListAsync(token);
 
-        return packages
-            .Where(package =>
-                package.IsActive &&
-                package.ExpiresAtUtc > DateTime.UtcNow &&
-                (!businessId.HasValue || package.BusinessId == businessId.Value))
-            .OrderBy(package => package.Name)
-            .Select(package => new PackageDto(
-                package.Id,
-                package.BusinessId,
-                package.Name,
-                package.Description,
-                package.Credits,
-                package.ExpiresAtUtc))
-            .ToList();
+                return packages
+                    .Where(package =>
+                        package.IsActive &&
+                        (!businessId.HasValue || package.BusinessId == businessId.Value))
+                    .OrderBy(package => package.Name)
+                    .Select(package => new PackageDto(
+                        package.Id,
+                        package.BusinessId,
+                        package.Name,
+                        package.Description,
+                        package.Credits,
+                        package.ExpiresAtUtc))
+                    .ToList();
+            },
+            cancellationToken);
     }
 
     public async Task<PackageDto> CreateAsync(CreatePackageCommand command, CancellationToken cancellationToken = default)
@@ -49,6 +58,9 @@ public sealed class PackageService(
 
         await packageRepository.AddAsync(package, cancellationToken);
         await packageRepository.SaveChangesAsync(cancellationToken);
+        await Task.WhenAll(
+            cache.RemoveAsync(GetCacheKey(null), cancellationToken),
+            cache.RemoveAsync(GetCacheKey(package.BusinessId), cancellationToken));
 
         return new PackageDto(
             package.Id,
@@ -91,4 +103,7 @@ public sealed class PackageService(
             customerPackage.TotalCredits,
             customerPackage.RemainingCredits);
     }
+
+    private static string GetCacheKey(int? businessId) =>
+        $"packages:business:{businessId?.ToString() ?? "all"}";
 }

@@ -19,4 +19,6 @@ public sealed class TimetableSchedule : Entity
     public int TotalSlots { get; set; }
 
     public int AvailableSlots { get; set; }
+
+    public ICollection<Booking> Bookings { get; set; } = [];
 }
