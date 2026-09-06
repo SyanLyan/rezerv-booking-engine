@@ -5,4 +5,7 @@
     <Project Path="src/Rezerv.Domain/Rezerv.Domain.csproj" />
     <Project Path="src/Rezerv.Infrastructure/Rezerv.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Rezerv.Application.Tests/Rezerv.Application.Tests.csproj" />
+  </Folder>
 </Solution>
