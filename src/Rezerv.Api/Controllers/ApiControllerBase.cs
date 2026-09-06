@@ -11,6 +11,9 @@ public abstract class ApiControllerBase : ControllerBase
     protected ActionResult<ApiResponse<T>> CreatedResponse<T>(T data) =>
         StatusCode(StatusCodes.Status201Created, ApiResponse<T>.Succeeded(data, ApiResponseMessages.Created));
 
+    protected ActionResult<ApiResponse<T>> UpdatedResponse<T>(T data) =>
+        Ok(ApiResponse<T>.Succeeded(data, ApiResponseMessages.Updated));
+
     protected ActionResult<ApiResponse<T>> BadRequestResponse<T>(string message) =>
         BadRequest(ApiResponse<T>.Failed(ApiResponseMessages.RequestFailed, message));
 

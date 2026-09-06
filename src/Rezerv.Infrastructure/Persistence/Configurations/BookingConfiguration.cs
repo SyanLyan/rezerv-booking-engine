@@ -30,7 +30,7 @@ public sealed class BookingConfiguration : IEntityTypeConfiguration<Booking>
             .HasForeignKey(booking => booking.CustomerPackageId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(booking => new { booking.CustomerId, booking.TimetableScheduleId })
+        builder.HasIndex(booking => new { booking.CustomerId, booking.ActiveTimetableScheduleId })
             .IsUnique();
 
         builder.HasIndex(booking => new { booking.TimetableScheduleId, booking.Status, booking.CreatedAtUtc });

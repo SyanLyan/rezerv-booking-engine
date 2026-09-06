@@ -113,32 +113,6 @@ namespace Rezerv.Infrastructure.Persistence.Migrations
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
-            migrationBuilder.InsertData(
-                table: "businesses",
-                columns: new[] { "Id", "CreatedAtUtc", "Name" },
-                values: new object[,]
-                {
-                    { 1, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Rezerv Fitness" },
-                    { 2, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Studio Flow" }
-                });
-
-            migrationBuilder.InsertData(
-                table: "customers",
-                columns: new[] { "Id", "CreatedAtUtc", "Email", "FirstName", "LastName" },
-                values: new object[,]
-                {
-                    { 1, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "ava.smith@example.com", "Ava", "Smith" },
-                    { 2, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "noah.johnson@example.com", "Noah", "Johnson" },
-                    { 3, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "mia.williams@example.com", "Mia", "Williams" },
-                    { 4, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "liam.brown@example.com", "Liam", "Brown" },
-                    { 5, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "emma.jones@example.com", "Emma", "Jones" },
-                    { 6, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "oliver.garcia@example.com", "Oliver", "Garcia" },
-                    { 7, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "sophia.miller@example.com", "Sophia", "Miller" },
-                    { 8, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "ethan.davis@example.com", "Ethan", "Davis" },
-                    { 9, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "isabella.wilson@example.com", "Isabella", "Wilson" },
-                    { 10, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "james.moore@example.com", "James", "Moore" }
-                });
-
             migrationBuilder.CreateIndex(
                 name: "IX_customer_packages_CustomerId_ExpiresAtUtc",
                 table: "customer_packages",

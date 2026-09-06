@@ -13,6 +13,8 @@ public sealed class Booking : Entity
 
     public TimetableSchedule TimetableSchedule { get; set; } = null!;
 
+    public int? ActiveTimetableScheduleId { get; set; }
+
     public int CustomerPackageId { get; set; }
 
     public CustomerPackage CustomerPackage { get; set; } = null!;

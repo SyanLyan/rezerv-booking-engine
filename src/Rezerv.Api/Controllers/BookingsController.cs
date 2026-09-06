@@ -40,4 +40,24 @@ public sealed class BookingsController(IBookingService bookingService) : ApiCont
             return BadRequestResponse<BookingDto>(exception.Message);
         }
     }
+
+    [HttpPost("{bookingId:int}/cancel")]
+    public async Task<ActionResult<ApiResponse<BookingCancellationDto>>> Cancel(
+        int bookingId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var cancellation = await bookingService.CancelAsync(bookingId, cancellationToken);
+            return UpdatedResponse(cancellation);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFoundResponse<BookingCancellationDto>(exception.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequestResponse<BookingCancellationDto>(exception.Message);
+        }
+    }
 }

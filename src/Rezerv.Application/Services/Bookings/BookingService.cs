@@ -60,6 +60,7 @@ public sealed class BookingService(
             {
                 CustomerId = command.CustomerId,
                 TimetableScheduleId = candidate.Schedule.Id,
+                ActiveTimetableScheduleId = candidate.Schedule.Id,
                 CustomerPackageId = candidate.CustomerPackage.Id,
                 Status = status,
                 CreatedAtUtc = DateTime.UtcNow
@@ -85,6 +86,71 @@ public sealed class BookingService(
             result.Booking.CreatedAtUtc);
     }
 
+    public async Task<BookingCancellationDto> CancelAsync(
+        int bookingId,
+        CancellationToken cancellationToken = default)
+    {
+        var timetableScheduleId = await bookingRepository.GetTimetableScheduleIdAsync(bookingId, cancellationToken)
+            ?? throw new KeyNotFoundException("Booking was not found.");
+
+        await using var bookingLock = await AcquireScheduleLockAsync(timetableScheduleId, cancellationToken);
+
+        var result = await transactionExecutor.ExecuteAsync(async token =>
+        {
+            var candidate = await bookingRepository.LoadCancellationCandidateAsync(bookingId, token)
+                ?? throw new KeyNotFoundException("Booking was not found.");
+            var cancelledBooking = candidate.Booking;
+
+            if (cancelledBooking.Status != BookingStatus.Booked)
+            {
+                throw new InvalidOperationException("Only confirmed bookings can be cancelled.");
+            }
+
+            var cancelledAtUtc = DateTime.UtcNow;
+            if (cancelledBooking.TimetableSchedule.StartTimeUtc <= cancelledAtUtc)
+            {
+                throw new InvalidOperationException("Bookings cannot be cancelled after the schedule has started.");
+            }
+
+            cancelledBooking.Status = BookingStatus.Cancelled;
+            cancelledBooking.CancelledAtUtc = cancelledAtUtc;
+            cancelledBooking.ActiveTimetableScheduleId = null;
+            cancelledBooking.TimetableSchedule.AvailableSlots += 1;
+
+            var refundEvaluation = await bookingRuleEngine.EvaluateCancellationAsync(
+                new BookingCancellationRuleInput(
+                    cancelledBooking.TimetableSchedule.StartTimeUtc - cancelledAtUtc >= TimeSpan.FromHours(4)),
+                token);
+
+            if (refundEvaluation.ShouldRefund)
+            {
+                cancelledBooking.CustomerPackage.RemainingCredits += 1;
+            }
+
+            var promotedBooking = await PromoteFirstEligibleWaitlistedBookingAsync(
+                cancelledBooking.TimetableSchedule,
+                token);
+
+            return new BookingCancellationResult(
+                cancelledBooking,
+                refundEvaluation.ShouldRefund,
+                promotedBooking);
+        }, cancellationToken);
+
+        await Task.WhenAll(TimetableCacheKeys.AffectedBy(
+                result.CancelledBooking.TimetableSchedule.BusinessId,
+                result.CancelledBooking.TimetableSchedule.StartTimeUtc)
+            .Select(key => cache.RemoveAsync(key, cancellationToken)));
+
+        return new BookingCancellationDto(
+            result.CancelledBooking.Id,
+            result.CreditRefunded,
+            result.PromotedBooking is null ? null : MapToDto(result.PromotedBooking));
+    }
+
+    public Task<int> DeleteStartedWaitlistsAsync(CancellationToken cancellationToken = default) =>
+        bookingRepository.DeleteStartedWaitlistEntriesAsync(DateTime.UtcNow, cancellationToken);
+
     private async Task<BookingStatus> ValidateBookingAsync(BookingRuleInput input, CancellationToken cancellationToken)
     {
         var evaluation = await bookingRuleEngine.EvaluateAsync(input, cancellationToken);
@@ -105,6 +171,41 @@ public sealed class BookingService(
         }
 
         return BookingStatus.Waitlisted;
+    }
+
+    private async Task<Booking?> PromoteFirstEligibleWaitlistedBookingAsync(
+        TimetableSchedule schedule,
+        CancellationToken cancellationToken)
+    {
+        var candidates = await bookingRepository.ListWaitlistPromotionCandidatesAsync(schedule.Id, cancellationToken);
+
+        foreach (var candidate in candidates)
+        {
+            var waitlistedBooking = candidate.Booking;
+            var customerPackage = waitlistedBooking.CustomerPackage;
+            var ruleInput = new BookingRuleInput(
+                schedule.StartTimeUtc > DateTime.UtcNow,
+                schedule.AvailableSlots,
+                customerPackage.RemainingCredits > 0,
+                customerPackage.Package.ExpiresAtUtc <= DateTime.UtcNow,
+                customerPackage.Package.BusinessId == schedule.BusinessId,
+                false,
+                candidate.HasOverlappingBooking);
+            var evaluation = await bookingRuleEngine.EvaluateAsync(ruleInput, cancellationToken);
+
+            if (!evaluation.IsAllowed || customerPackage.CustomerId != waitlistedBooking.CustomerId)
+            {
+                continue;
+            }
+
+            waitlistedBooking.Status = BookingStatus.Booked;
+            schedule.AvailableSlots -= 1;
+            customerPackage.RemainingCredits -= 1;
+
+            return waitlistedBooking;
+        }
+
+        return null;
     }
 
     private async Task<IAsyncDisposable> AcquireScheduleLockAsync(int timetableScheduleId, CancellationToken cancellationToken)
@@ -131,4 +232,17 @@ public sealed class BookingService(
         Booking Booking,
         int BusinessId,
         DateTime StartTimeUtc);
+
+    private sealed record BookingCancellationResult(
+        Booking CancelledBooking,
+        bool CreditRefunded,
+        Booking? PromotedBooking);
+
+    private static BookingDto MapToDto(Booking booking) => new(
+        booking.Id,
+        booking.CustomerId,
+        booking.TimetableScheduleId,
+        booking.CustomerPackageId,
+        booking.Status,
+        booking.CreatedAtUtc);
 }

@@ -8,6 +8,14 @@ namespace Rezerv.Infrastructure.Persistence.Repositories;
 
 public sealed class BookingRepository(RezervDbContext dbContext) : IBookingRepository
 {
+    public Task<int?> GetTimetableScheduleIdAsync(
+        int bookingId,
+        CancellationToken cancellationToken = default) =>
+        dbContext.Bookings
+            .Where(booking => booking.Id == bookingId)
+            .Select(booking => (int?)booking.TimetableScheduleId)
+            .SingleOrDefaultAsync(cancellationToken);
+
     public async Task<BookingCandidate?> LoadCandidateAsync(
         int customerId,
         int timetableScheduleId,
@@ -37,7 +45,7 @@ public sealed class BookingRepository(RezervDbContext dbContext) : IBookingRepos
                 booking =>
                     booking.CustomerId == customerId &&
                     booking.TimetableScheduleId == timetableScheduleId &&
-                    booking.Status != BookingStatus.Cancelled,
+                    (booking.Status == BookingStatus.Booked || booking.Status == BookingStatus.Waitlisted),
                 cancellationToken);
         var hasOverlappingBooking = activeBookings.Any(booking =>
             schedule.StartTimeUtc < booking.TimetableSchedule.EndTimeUtc &&
@@ -50,6 +58,60 @@ public sealed class BookingRepository(RezervDbContext dbContext) : IBookingRepos
             hasExistingBooking,
             hasOverlappingBooking);
     }
+
+    public async Task<BookingCancellationCandidate?> LoadCancellationCandidateAsync(
+        int bookingId,
+        CancellationToken cancellationToken = default)
+    {
+        var booking = await dbContext.Bookings
+            .Include(item => item.TimetableSchedule)
+            .Include(item => item.CustomerPackage)
+            .ThenInclude(item => item.Package)
+            .SingleOrDefaultAsync(item => item.Id == bookingId, cancellationToken);
+
+        return booking is null ? null : new BookingCancellationCandidate(booking);
+    }
+
+    public async Task<IReadOnlyList<WaitlistPromotionCandidate>> ListWaitlistPromotionCandidatesAsync(
+        int timetableScheduleId,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await dbContext.Bookings
+            .Include(booking => booking.CustomerPackage)
+            .ThenInclude(customerPackage => customerPackage.Package)
+            .Include(booking => booking.TimetableSchedule)
+            .Where(booking =>
+                booking.TimetableScheduleId == timetableScheduleId &&
+                booking.Status == BookingStatus.Waitlisted)
+            .OrderBy(booking => booking.CreatedAtUtc)
+            .ThenBy(booking => booking.Id)
+            .Select(waitlistedBooking => new
+            {
+                Booking = waitlistedBooking,
+                HasOverlappingBooking = dbContext.Bookings.Any(booking =>
+                    booking.CustomerId == waitlistedBooking.CustomerId &&
+                    booking.Status == BookingStatus.Booked &&
+                    booking.TimetableScheduleId != timetableScheduleId &&
+                    waitlistedBooking.TimetableSchedule.StartTimeUtc < booking.TimetableSchedule.EndTimeUtc &&
+                    waitlistedBooking.TimetableSchedule.EndTimeUtc > booking.TimetableSchedule.StartTimeUtc)
+            })
+            .ToListAsync(cancellationToken);
+
+        return candidates
+            .Select(candidate => new WaitlistPromotionCandidate(
+                candidate.Booking,
+                candidate.HasOverlappingBooking))
+            .ToList();
+    }
+
+    public Task<int> DeleteStartedWaitlistEntriesAsync(
+        DateTime startedBeforeOrAtUtc,
+        CancellationToken cancellationToken = default) =>
+        dbContext.Bookings
+            .Where(booking =>
+                booking.Status == BookingStatus.Waitlisted &&
+                booking.TimetableSchedule.StartTimeUtc <= startedBeforeOrAtUtc)
+            .ExecuteDeleteAsync(cancellationToken);
 
     public Task AddAsync(Booking booking, CancellationToken cancellationToken = default) =>
         dbContext.Bookings.AddAsync(booking, cancellationToken).AsTask();
