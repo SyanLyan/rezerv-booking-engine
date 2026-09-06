@@ -45,16 +45,44 @@ Prerequisites: .NET SDK 10, Docker Desktop, and Docker Compose.
 
 5. Open `/swagger` while running in the Development environment.
 
+## Tests
+
+Run the full test suite from the repository root:
+
+```powershell
+dotnet test
+```
+
+Run only the application test project:
+
+```powershell
+dotnet test tests/Rezerv.Application.Tests/Rezerv.Application.Tests.csproj
+```
+
+Run a specific test flow by filtering on part of its fully qualified name. Replace the value after `~` with the test class or method name:
+
+```powershell
+dotnet test --filter "FullyQualifiedName~BookingServiceTests"
+dotnet test --filter "FullyQualifiedName~CancelAsync_WhenAtLeastFourHoursBeforeSchedule"
+```
+## Build
+
+```powershell
+dotnet build Rezerv.slnx -c Release
+```
+
 ## API response body
 
 All controller responses follow this format:
 
-{
-	"success": true,
-	"message": "Fetched successfully.",
-	"data": {},
-	"errors": null
-}
+```json
+	{
+		"success": true,
+		"message": "Fetched successfully.",
+		"data": {},
+		"errors": null
+	}
+```
 
 ## Package APIs
 
@@ -98,22 +126,6 @@ All controller responses follow this format:
 - I reject cancellations after a schedule has started. A late cancellation is one made less than four hours before its start and does not receive a credit refund.
 - I remove pending waitlist entries once their schedule starts. Hangfire runs this cleanup every minute, so removal can occur up to one minute after the start time. Confirmed and cancelled bookings remain for history.
 
-## Tradeoffs
-
-- I store times in UTC and use `UTC_TIMESTAMP(6)` in demo data. This makes cancellation windows and overlap checks consistent across developer machines and deployments; clients should convert times for display.
-- I keep a customer package purchase as a separate balance instead of merging purchases. This makes credit consumption and refunds traceable, but the client must choose the balance to use.
-- I use `ActiveTimetableScheduleId` alongside the permanent schedule foreign key. A nullable active key allows a database unique index to prevent duplicate active booking/waitlist entries while preserving cancelled booking history and allowing a later rebooking.
-- Timetable and package lists use short-lived Redis cache-aside entries. This reduces repeated reads but accepts up to one minute of stale list data; relevant cache keys are invalidated after writes.
-- A waitlist entry must have a valid package and available credit when it joins, but its credit is deducted only at promotion. This avoids queuing entries that are already ineligible, while still rechecking all conditions at promotion time.
-
-## Future package validity model
-
-The current package offer uses a fixed `ExpiresAtUtc` value, so every customer who purchases that offer shares the same expiry date. This is suitable for a time-limited campaign, but it is not flexible for a reusable package catalog.
-
-For a future iteration, I would replace the package offer's fixed expiry with `ValidityDays`. For example, a "10 Class Pack" could have `ValidityDays = 30`. When a customer purchases it, the system would set `CustomerPackage.PurchasedAtUtc` to the purchase time and calculate `CustomerPackage.ExpiresAtUtc = PurchasedAtUtc + ValidityDays`. Booking and waitlist validation would use the customer package expiry, not the package offer expiry.
-
-This preserves the terms accepted at purchase time: changing `ValidityDays` on an offer affects only future purchases, while existing customer package balances retain their original calculated expiry date.
-
 ## Validation and booking rules
 
 All POST request models use FluentValidation. Validation errors are returned in the standard response body's `errors` array.
@@ -139,6 +151,28 @@ After acquiring the lock, the operation runs in a MySQL serializable transaction
 
 Hangfire uses the configured MySQL connection for persistent jobs. It removes pending waitlist entries for schedules that have started every minute. In the Development environment, the dashboard is available at `/hangfire`.
 
+## Health checks
+
+- `GET /api/health`: API controller health response.
+- `GET /health`: liveness probe without a database dependency.
+- `GET /health/ready`: MySQL readiness probe.
+
+## Tradeoffs
+
+- I store times in UTC and use `UTC_TIMESTAMP(6)` in demo data. This makes cancellation windows and overlap checks consistent across developer machines and deployments; clients should convert times for display.
+- I keep a customer package purchase as a separate balance instead of merging purchases. This makes credit consumption and refunds traceable, but the client must choose the balance to use.
+- I use `ActiveTimetableScheduleId` alongside the permanent schedule foreign key. A nullable active key allows a database unique index to prevent duplicate active booking/waitlist entries while preserving cancelled booking history and allowing a later rebooking.
+- Timetable and package lists use short-lived Redis cache-aside entries. This reduces repeated reads but accepts up to one minute of stale list data; relevant cache keys are invalidated after writes.
+- A waitlist entry must have a valid package and available credit when it joins, but its credit is deducted only at promotion. This avoids queuing entries that are already ineligible, while still rechecking all conditions at promotion time.
+
+## Future package validity model
+
+The current package offer uses a fixed `ExpiresAtUtc` value, so every customer who purchases that offer shares the same expiry date. This is suitable for a time-limited campaign, but it is not flexible for a reusable package catalog.
+
+For a future iteration, I would replace the package offer's fixed expiry with `ValidityDays`. For example, a "10 Class Pack" could have `ValidityDays = 30`. When a customer purchases it, the system would set `CustomerPackage.PurchasedAtUtc` to the purchase time and calculate `CustomerPackage.ExpiresAtUtc = PurchasedAtUtc + ValidityDays`. Booking and waitlist validation would use the customer package expiry, not the package offer expiry.
+
+This preserves the terms accepted at purchase time: changing `ValidityDays` on an offer affects only future purchases, while existing customer package balances retain their original calculated expiry date.
+
 ## Production scaling
 
 - Run multiple stateless API instances behind a load balancer. Redis schedule locks and MySQL transactions retain booking correctness across instances.
@@ -148,14 +182,4 @@ Hangfire uses the configured MySQL connection for persistent jobs. It removes pe
 - For customer notifications or external payment flows, publish events through an outbox in the same transaction, then process them asynchronously. This keeps booking commits fast and prevents losing notifications after a successful database commit.
 - Keep backups, migration rollout checks, Redis high availability, secrets management, HTTPS termination, authentication, and authorization in the deployment platform. The current API is intentionally unauthenticated for the assignment workflow.
 
-## Health checks
 
-- `GET /api/health`: API controller health response.
-- `GET /health`: liveness probe without a database dependency.
-- `GET /health/ready`: MySQL readiness probe.
-
-## Build
-
-```powershell
-dotnet build Rezerv.slnx -c Release
-```
