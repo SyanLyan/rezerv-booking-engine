@@ -20,7 +20,7 @@ public sealed class RedisApplicationCache(IConnectionMultiplexer connectionMulti
         var cachedValue = await _database.StringGetAsync(key);
         if (cachedValue.HasValue)
         {
-            var value = JsonSerializer.Deserialize<T>(cachedValue!, SerializerOptions);
+            var value = JsonSerializer.Deserialize<T>(cachedValue.ToString(), SerializerOptions);
             if (value is not null)
             {
                 return value;

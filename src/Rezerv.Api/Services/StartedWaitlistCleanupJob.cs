@@ -1,4 +1,4 @@
-using Rezerv.Application.Services.Bookings;
+  using Rezerv.Application.Services.Bookings;
 
 namespace Rezerv.Api.Services;
 

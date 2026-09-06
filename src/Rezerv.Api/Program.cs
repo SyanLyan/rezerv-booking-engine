@@ -1,10 +1,9 @@
 using Hangfire;
 using Hangfire.MySql;
-using FluentValidation;
-using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Rezerv.Api.Contracts.Common;
+using Rezerv.Api.Filters;
 using Rezerv.Api.Services;
 using Rezerv.Application;
 using Rezerv.Infrastructure;
@@ -14,9 +13,8 @@ var builder = WebApplication.CreateBuilder(args);
 var databaseConnection = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is required.");
 
-builder.Services.AddControllers();
-builder.Services.AddFluentValidationAutoValidation();
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.AddControllers(options => options.Filters.Add<FluentValidationFilter>());
+builder.Services.AddRezervValidators();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();

@@ -37,6 +37,11 @@ public sealed class BookingService(
                 throw new InvalidOperationException("The customer package does not belong to the customer.");
             }
 
+            if (candidate.Schedule.AvailableSlots == 0)
+            {
+                throw new InvalidOperationException("Schedule is full. Please join the waitlist.");
+            }
+
             var ruleInput = new BookingRuleInput(
                 candidate.Schedule.StartTimeUtc > DateTime.UtcNow,
                 candidate.Schedule.AvailableSlots,
@@ -46,15 +51,9 @@ public sealed class BookingService(
                 candidate.HasExistingBooking,
                 candidate.HasOverlappingBooking);
 
-            var status = candidate.Schedule.AvailableSlots > 0
-                ? await ValidateBookingAsync(ruleInput, token)
-                : await ValidateWaitlistAsync(ruleInput, token);
-
-            if (status == BookingStatus.Booked)
-            {
-                candidate.Schedule.AvailableSlots -= 1;
-                candidate.CustomerPackage.RemainingCredits -= 1;
-            }
+            await ValidateBookingAsync(ruleInput, token);
+            candidate.Schedule.AvailableSlots -= 1;
+            candidate.CustomerPackage.RemainingCredits -= 1;
 
             var createdBooking = new Booking
             {
@@ -62,7 +61,7 @@ public sealed class BookingService(
                 TimetableScheduleId = candidate.Schedule.Id,
                 ActiveTimetableScheduleId = candidate.Schedule.Id,
                 CustomerPackageId = candidate.CustomerPackage.Id,
-                Status = status,
+                Status = BookingStatus.Booked,
                 CreatedAtUtc = DateTime.UtcNow
             };
 
@@ -84,6 +83,57 @@ public sealed class BookingService(
             result.Booking.CustomerPackageId,
             result.Booking.Status,
             result.Booking.CreatedAtUtc);
+    }
+
+    public async Task<BookingDto> JoinWaitlistAsync(
+        JoinWaitlistCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        await using var bookingLock = await AcquireScheduleLockAsync(command.TimetableScheduleId, cancellationToken);
+
+        var booking = await transactionExecutor.ExecuteAsync(async token =>
+        {
+            var candidate = await bookingRepository.LoadCandidateAsync(
+                command.CustomerId,
+                command.TimetableScheduleId,
+                command.CustomerPackageId,
+                token) ?? throw new KeyNotFoundException("Customer, timetable schedule, or customer package was not found.");
+
+            if (!candidate.IsCustomerPackageOwnedByCustomer)
+            {
+                throw new InvalidOperationException("The customer package does not belong to the customer.");
+            }
+
+            if (candidate.Schedule.AvailableSlots > 0)
+            {
+                throw new InvalidOperationException("The schedule has available slots. Create a booking instead.");
+            }
+
+            var ruleInput = new BookingRuleInput(
+                candidate.Schedule.StartTimeUtc > DateTime.UtcNow,
+                candidate.Schedule.AvailableSlots,
+                candidate.CustomerPackage.RemainingCredits > 0,
+                candidate.CustomerPackage.Package.ExpiresAtUtc <= DateTime.UtcNow,
+                candidate.CustomerPackage.Package.BusinessId == candidate.Schedule.BusinessId,
+                candidate.HasExistingBooking,
+                candidate.HasOverlappingBooking);
+            await ValidateWaitlistAsync(ruleInput, token);
+
+            var waitlistEntry = new Booking
+            {
+                CustomerId = command.CustomerId,
+                TimetableScheduleId = candidate.Schedule.Id,
+                ActiveTimetableScheduleId = candidate.Schedule.Id,
+                CustomerPackageId = candidate.CustomerPackage.Id,
+                Status = BookingStatus.Waitlisted,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            await bookingRepository.AddAsync(waitlistEntry, token);
+            return waitlistEntry;
+        }, cancellationToken);
+
+        return MapToDto(booking);
     }
 
     public async Task<BookingCancellationDto> CancelAsync(

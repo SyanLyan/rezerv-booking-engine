@@ -9,6 +9,10 @@ public interface IBookingService
         CreateBookingCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<BookingDto> JoinWaitlistAsync(
+        JoinWaitlistCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<BookingCancellationDto> CancelAsync(
         int bookingId,
         CancellationToken cancellationToken = default);
