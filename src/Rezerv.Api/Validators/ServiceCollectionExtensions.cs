@@ -4,6 +4,7 @@ using Rezerv.Api.Contracts.Businesses;
 using Rezerv.Api.Contracts.Customers;
 using Rezerv.Api.Contracts.Packages;
 using Rezerv.Api.Contracts.Timetable;
+using Rezerv.Api.Validators;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
