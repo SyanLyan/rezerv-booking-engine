@@ -23,7 +23,7 @@ Dependencies point inward: API depends on Application and Infrastructure, Infras
 
 Prerequisites: .NET SDK 10, Docker Desktop, and Docker Compose.
 
-1. Start MySQL with docker script:
+1. Start MySQL & Redis with docker script:
 
 	```powershell
 	docker compose up -d
