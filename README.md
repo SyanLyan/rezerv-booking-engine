@@ -15,6 +15,10 @@ The solution uses a pragmatic Clean Architecture split. The Domain layer contain
 
 Dependencies point inward: API depends on Application and Infrastructure, Infrastructure depends on Application and Domain, and Application depends on Domain. This keeps booking rules independent from HTTP and database implementation details while avoiding unnecessary abstractions outside the current use cases.
 
+## Database ERD
+
+![Rezerv Booking Engine entity relationship diagram](docs/images/Rezerv_Booking_Engine_ERD.png)
+
 ## Local setup
 
 Prerequisites: .NET SDK 10, Docker Desktop, and Docker Compose.
