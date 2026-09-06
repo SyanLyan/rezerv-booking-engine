@@ -92,7 +92,7 @@ All controller responses follow this format:
 - I treat each booking as a reservation for one slot in one timetable schedule.
 - I keep each package purchase as a separate customer package balance, even when the customer buys the same package more than once. I do not combine credits; the customer selects the separate package to use for each booking.
 - I allow each customer to have only one active booking or waitlist entry for the same schedule.
-- I prevent customers from booking classes that overlap in time as requested, but allow classes that start exactly when another class ends.
+- I prevent customers from booking classes that overlap in time, but allow classes that start exactly when another class ends. Businesses may create overlapping timetable schedules because they can run multiple classes concurrently.
 - For the waitlist FIFO auto booked scenario, I promote waitlisted customers in the order they joined the queue, using `CreatedAtUtc`; the booking ID breaks a tie when two entries have the same timestamp.
 - I require a valid, customer-owned package with at least one credit when joining a waitlist. The credit is deducted only if that entry is promoted to a booking.
 - I reject cancellations after a schedule has started. A late cancellation is one made less than four hours before its start and does not receive a credit refund.
